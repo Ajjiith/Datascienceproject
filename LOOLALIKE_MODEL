@@ -1,0 +1,49 @@
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import StandardScaler
+
+
+transactions_df = pd.read_csv('/content/Transactions.csv')
+products_df = pd.read_csv('/content/Products.csv')
+customers_df = pd.read_csv('/content/Customers.csv')
+
+
+full_data = pd.merge(pd.merge(transactions_df, products_df, on='ProductID'), customers_df, on='CustomerID')
+
+customer_features = full_data.groupby('CustomerID').agg(
+    total_spent=('TotalValue', 'sum'),
+    avg_spent=('TotalValue', 'mean'),
+    transaction_count=('TransactionID', 'count')
+).reset_index()
+
+
+scaler = StandardScaler()
+scaled_features = scaler.fit_transform(customer_features.drop(columns=['CustomerID']))
+
+
+similarity_matrix = cosine_similarity(scaled_features)
+
+
+def get_top_similar(customers, similarity_matrix, top_n=3):
+    similar_customers = {}
+    for idx, customer_id in enumerate(customers[:20]):
+        scores = similarity_matrix[idx]
+        top_indices = scores.argsort()[::-1][1:top_n + 1]
+        similar_customers[customer_id] = [
+            {'cust_id': customers[i], 'score': scores[i]} for i in top_indices
+        ]
+    return similar_customers
+
+customers_list = customer_features['CustomerID'].tolist()
+lookalike_results = get_top_similar(customers_list, similarity_matrix)
+
+
+lookalike_df = pd.DataFrame([
+    {'cust_id': cust_id, 'similar_cust_id': sim['cust_id'], 'score': sim['score']}
+    for cust_id, sim_list in lookalike_results.items()
+    for sim in sim_list
+])
+lookalike_df.to_csv('Lookalike.csv', index=False)
+
+
+print(lookalike_df.head())
