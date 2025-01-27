@@ -1,0 +1,31 @@
+import pandas as pd
+
+transactions_df = pd.read_csv('/content/Transactions.csv')
+products_df = pd.read_csv('/content/Products.csv')
+customers_df = pd.read_csv('/content/Customers.csv')
+
+transactions_products_df = pd.merge(transactions_df, products_df, on='ProductID', how='left')
+full_data = pd.merge(transactions_products_df, customers_df, on='CustomerID', how='left')
+print(full_data)
+print(full_data.columns)
+
+full_data['TransactionDate'] = pd.to_datetime(full_data['TransactionDate'])
+full_data['YearMonth'] = full_data['TransactionDate'].dt.to_period('M')
+
+
+top_products = full_data.groupby('ProductName')['Quantity'].sum().sort_values(ascending=False).head(5)
+print("Top 5 Products by Quantity:\n", top_products)
+
+top_categories = full_data.groupby('Category')['TotalValue'].sum().sort_values(ascending=False)
+print("\nRevenue by Category:\n", top_categories)
+
+region_sales = full_data.groupby('Region')['TotalValue'].sum()
+print("\nRevenue by Region:\n", region_sales)
+
+monthly_trend = full_data.groupby('YearMonth')['TotalValue'].sum()
+print("\nMonthly Sales Trend:\n", monthly_trend)
+
+repeat_customers = full_data['CustomerID'].value_counts().loc[lambda x: x > 1].count()
+high_value_transactions = full_data[full_data['TotalValue'] > full_data['TotalValue'].mean()]
+print(f"\nNumber of Repeat Customers: {repeat_customers}")
+print(f"Number of High-Value Transactions: {high_value_transactions.shape[0]}")
